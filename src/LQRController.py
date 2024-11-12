@@ -13,8 +13,8 @@ class LQRController:
         R (ndarray): Control cost matrix for LQR.
         Ts (float): Sampling time for discretization.
         """
-        self.A = A
-        self.B = B
+        self.Ad = A
+        self.Bd = B
         self.Q = Q
         self.R = R
         self.Ts = Ts

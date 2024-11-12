@@ -1,40 +1,39 @@
 import numpy as np
 
 class KalmanFilter:
-    def __init__(self, A, B, C, Q, R, Ts):
+    def __init__(self, A, B, C, Q, R):
         """
         Initialize the Kalman Filter.
         
-        Parameters:
-        A (ndarray): State transition matrix.
-        B (ndarray): Control input matrix.
-        C (ndarray): Measurement matrix.
-        Q (ndarray): Process noise covariance matrix.
-        R (ndarray): Measurement noise covariance matrix.
-        Ts (float): Sampling time for discretization.
+        Parameters
+        ----------
+        A: State transition matrix.
+        B: Control input matrix.
+        C: Measurement matrix.
+        Q: Process noise covariance matrix.
+        R: Measurement noise covariance matrix.
         """
         self.A = A
         self.B = B
         self.C = C
         self.Q = Q
         self.R = R
-        self.Ts = Ts
 
     def predict(self, x_hat, P, u):
         """
         Performs the prediction step of the Kalman filter.
         
-        Parameters:
+        Parameters
+        ----------
         x_hat (ndarray): Prior state estimate.
         P (ndarray): Prior error covariance matrix.
         u (ndarray): Control input.
         
-        Returns:
+        Returns
+        -------
         x_pred (ndarray): Predicted state estimate.
         P_pred (ndarray): Predicted error covariance matrix.
         """
-        # x_pred = self.Ad @ x_hat + self.Bd @ u
-        # P_pred = self.Ad @ P @ self.Ad.T + self.Q
         x_pred = self.A @ x_hat + self.B @ u
         P_pred = self.A @ P @ self.A.T + self.Q
         
@@ -44,14 +43,16 @@ class KalmanFilter:
         """
         Performs the update step of the Kalman filter.
         
-        Parameters:
-        x_pred (ndarray): Predicted state estimate.
-        P_pred (ndarray): Predicted error covariance matrix.
-        y (ndarray): Measurement vector.
+        Parameters
+        ----------
+        x_pred: Predicted state estimate.
+        P_pred: Predicted error covariance matrix.
+        y: Measurement vector.
         
-        Returns:
-        x_updated (ndarray): Updated state estimate.
-        P_updated (ndarray): Updated error covariance matrix.
+        Returns
+        -------
+        x_updated: Updated state estimate.
+        P_updated: Updated error covariance matrix.
         """
         # Innovation (measurement residual)
         z = y - self.C @ x_pred
@@ -72,15 +73,17 @@ class KalmanFilter:
         """
         Performs a full prediction-update step of the Kalman filter.
         
-        Parameters:
-        x_hat (ndarray): Prior state estimate.
-        P (ndarray): Prior error covariance matrix.
-        u (ndarray): Control input.
-        y (ndarray): Measurement vector.
+        Parameters
+        ----------
+        x_hat: Prior state estimate.
+        P: Prior error covariance matrix.
+        u: Control input.
+        y: Measurement vector.
         
-        Returns:
-        x_updated (ndarray): Updated state estimate.
-        P_updated (ndarray): Updated error covariance matrix.
+        Returns
+        -------
+        x_updated: Updated state estimate.
+        P_updated: Updated error covariance matrix.
         """
         x_pred, P_pred       = self.predict(x_hat, P, u)
         x_updated, P_updated = self.update(x_pred, P_pred, y)

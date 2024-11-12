@@ -13,7 +13,6 @@ class LuenbergerObserver:
         L (numpy.ndarray): Observer gain matrix.
         dt (float): Time step for the observer updates.
         """
-        A[:, 2:] *= 0.5
         self.A = A
         self.B = B
         self.C = C
@@ -36,7 +35,7 @@ class LuenbergerObserver:
         """
         # Compute the output estimation error
         y_hat = self.C @ self.x_hat
-        e_y = y - y_hat  # Measurement error
+        e_y = y - y_hat  
 
         # Luenberger observer update
         x_hat_dot = self.A @ self.x_hat + self.B @ u + e_y @ self.L

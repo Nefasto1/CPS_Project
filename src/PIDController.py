@@ -5,12 +5,29 @@ from scipy.optimize import minimize
 from src.simulation import simulation
 
 class PID_Controller():
-    def __init__(self, car, obstacles, target, reference=5, simulation_time=200, dt=0.5, inertia=0.8, kalman=True):
+    def __init__(self, car, obstacles, target, reference=5, simulation_time=200, dt=0.5, inertia=0.8, kalman=True, noise=[1, 1, 0.5, 0.5]):
+        """
+        Initialize the PID Controller.
+
+        Parameters
+        ----------
+        car: The list with the car informations
+        obstacles: The list with the obstacles informations
+        target: The list with the target informations
+        reference: The reference module speed to reach
+        simulation_time: The simulation time limit
+        dt: The used interval time
+        inertia: The inertia constant for the speed
+        kalman: A boolean for use or not the kalman filter in the simulation (if False use the Luemberger observer)
+        noise: List of noise values for both process and measurement
+        """
         self.dt              = dt
         self.inertia         = inertia
         self.simulation_time = simulation_time
         self.reference       = reference
+        
         self.kalman          = kalman
+        self.noise           = noise
 
         self.car       = car
         self.obstacles = obstacles
@@ -21,26 +38,45 @@ class PID_Controller():
         self.reset()
 
     def reset(self):
+        """
+        Reset the PID and history
+        """
         self.integral   = 0
         self.prev_error = 0
 
         self.speed_history     = []
         self.u_history         = []
 
-    def control(self, reference, predicted, Kp=None, Kd=None, Ki=None):
-        if Kp is None or Kd is None or Ki is None:
-            Kp, Kd, Ki = self.K
-        
+    def control(self, reference, predicted, Kp, Kd, Ki):
+        """
+        Evaluate the input given the current prediction
+
+        Parameters
+        ----------
+        reference: The reference signal to use (Method accessible from external, to fix)
+        predicted: The predicted new signal
+        Kp: Proportional Gain
+        Ki: Integral Gain
+        Kd: Derivative Gain
+
+        Returns
+        -------
+        u: The new input
+        """
+        # Evaluate the error and the values for the integrator and the derivator
         error          = reference - predicted
         self.integral += error * self.dt
         derivative     = ( error - self.prev_error ) / self.dt
 
+        # Evaluate the input
         u = Kp * error         \
           + Ki * self.integral \
           + Kd * derivative    
 
+        # Save the error for the next derivative evaluation
         self.prev_error = error
-        
+
+        # Take the absolute value (we work with the speed module)
         return np.abs(u)
         
     def performance_meas(self):
@@ -54,7 +90,7 @@ class PID_Controller():
         speed_reference_differences      = speeds - references
         reference_objective_intersection = np.abs(speed_reference_differences) < 0.1
 
-        # Rising Time
+        # Rising Time evaluation
         rising_time_idx   = np.zeros(reference_objective_intersection.shape[0]) - 1
 
         rised = reference_objective_intersection.any(1)
@@ -65,23 +101,38 @@ class PID_Controller():
         if (rising_time_idx != -1).any():
             rising_time_error[rising_time_idx != -1] = time[rising_time_idx[rising_time_idx != -1]]
 
-        # Steady State
+        # Steady State evaluation
         steady_state_error = np.abs(speed_reference_differences[:, -1])
 
-        # Overshooting
+        # Overshooting evaluation
         overshooting_error = maximum_speed - references[:, -1]
         
         return rising_time_error, overshooting_error, steady_state_error
 
     def cost_function(self, K):
+        """
+        Cost function related to the Gain parameters
+
+        Parameters
+        ----------
+        K: Tuple composed by (Proportional, Integral, Derivative) Gain
+
+        Returns
+        -------
+        cost: The cost of using the input Gain parameters
+        """
         Kp, Ki, Kd = K
+        # Reset the simulation
         self.reset()
-        
-        _, self.speed_history, _ = simulation(self.car, self.obstacles, self.target, self, 0.5, 0.8, self.reference, self.simulation_time, Kp, Ki, Kd, kalman=self.kalman)
+
+        # Retrive the speed history from the simulation and take the modules
+        _, self.speed_history, _ = simulation(self.car, self.obstacles, self.target, self, 0.5, 0.8, self.reference, self.simulation_time, Kp, Ki, Kd, kalman=self.kalman, noise=self.noise)
         self.speed_history = np.sqrt((self.speed_history**2).sum(1, keepdims=True))
 
+        # Evaluate the errors
         rising_time_error, overshooting_error, steady_state_error = self.performance_meas()
 
+        # Evaluate the costs
         cost = rising_time_error     \
              + overshooting_error*5  \
              + steady_state_error*10
@@ -89,8 +140,18 @@ class PID_Controller():
         return cost.sum()
         
     def optimize_pid(self, initial_guess):
-        optimized_values = minimize(self.cost_function, initial_guess, method='Powell', options={'disp': True})
+        """
+        Method to optimize the Gain parameters
 
-        self.K = optimized_values.x
+        Parameters
+        ----------
+        initial_guess: Tuple composed by (Proportional, Integral, Derivative) Gain
+        
+        Returns
+        -------
+        K: Tuple composed by the optimized (Proportional, Integral, Derivative) Gain
+        """
+        # Minimize the cost function to optimize the PID
+        optimized_values = minimize(self.cost_function, initial_guess, method='Powell', options={'disp': False})
 
-        return self.K
+        return optimized_values.x
