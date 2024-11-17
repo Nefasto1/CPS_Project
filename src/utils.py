@@ -83,10 +83,11 @@ def draw_trajectories(obstacles, start, targets, states, target_list):
         ax.add_patch(Circle(obstacle.get_coords(), 200, lw=2, facecolor="None", edgecolor="red", zorder=10))
 
     # Plot the target position
-    ax.scatter(targets[:, 0], targets[:, 1], color="green", zorder=10)
+    ax.scatter(targets[:, 0], targets[:, 1], color="yellow", zorder=10)
 
-    # Plot the temporaneous target positions
-    ax.scatter(target_list[:, 0], target_list[:, 1], color="yellow", zorder=10)
+    if len(target_list) > 0:
+        # Plot the temporaneous target positions
+        ax.scatter(target_list[:, 0], target_list[:, 1], color="black", zorder=10)
 
     # Show the plot
     plt.show()

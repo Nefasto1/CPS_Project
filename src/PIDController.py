@@ -5,7 +5,7 @@ from scipy.optimize import minimize
 from src.simulation import simulation
 
 class PID_Controller():
-    def __init__(self, car, obstacles, target, reference=5, simulation_time=200, dt=0.5, inertia=0.8, kalman=True, noise=[1, 1, 0.5, 0.5]):
+    def __init__(self, car, obstacles, target, reference=5, simulation_time=200, dt=0.5, inertia=0.8, kalman=True, noise=[1, 1, 0.5, 0.5], LQR=True):
         """
         Initialize the PID Controller.
 
@@ -28,6 +28,7 @@ class PID_Controller():
         
         self.kalman          = kalman
         self.noise           = noise
+        self.LQR             = LQR
 
         self.car       = car
         self.obstacles = obstacles
@@ -41,11 +42,10 @@ class PID_Controller():
         """
         Reset the PID and history
         """
-        self.integral   = 0
-        self.prev_error = 0
+        self.prev_errors   = [0]
 
-        self.speed_history     = []
-        self.u_history         = []
+        self.speed_history = []
+        self.u_history     = []
 
     def control(self, reference, predicted, Kp, Kd, Ki):
         """
@@ -65,16 +65,19 @@ class PID_Controller():
         """
         # Evaluate the error and the values for the integrator and the derivator
         error          = reference - predicted
-        self.integral += error * self.dt
-        derivative     = ( error - self.prev_error ) / self.dt
+        
+        integral = (np.sum(self.prev_errors[:50]) + error) * self.dt
+        integral = np.clip(integral, -1.5, 1.5)
+        
+        derivative     = ( error - self.prev_errors[-1] ) / self.dt
 
         # Evaluate the input
-        u = Kp * error         \
-          + Ki * self.integral \
+        u = Kp * error    \
+          + Ki * integral \
           + Kd * derivative    
 
         # Save the error for the next derivative evaluation
-        self.prev_error = error
+        self.prev_errors.append(error)
 
         # Take the absolute value (we work with the speed module)
         return np.abs(u)
@@ -126,7 +129,7 @@ class PID_Controller():
         self.reset()
 
         # Retrive the speed history from the simulation and take the modules
-        _, self.speed_history, _ = simulation(self.car, self.obstacles, self.target, self, 0.5, 0.8, self.reference, self.simulation_time, Kp, Ki, Kd, kalman=self.kalman, noise=self.noise)
+        _, self.speed_history, _, _, _, _, _ = simulation(self.car, self.obstacles, self.target, self, 0.5, 0.8, self.reference, self.simulation_time, Kp, Ki, Kd, kalman=self.kalman, noise=self.noise, LQR=self.LQR)
         self.speed_history = np.sqrt((self.speed_history**2).sum(1, keepdims=True))
 
         # Evaluate the errors
@@ -134,8 +137,8 @@ class PID_Controller():
 
         # Evaluate the costs
         cost = rising_time_error     \
-             + overshooting_error*5  \
-             + steady_state_error*10
+             + overshooting_error  \
+             + steady_state_error
 
         return cost.sum()
         

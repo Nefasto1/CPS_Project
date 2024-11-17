@@ -62,7 +62,7 @@ class Car():
         # Increase the speed by the acceleration in input plus a normal noise
         self.speed_x = self.inertia * self.speed_x + acceleration[0] * self.dt + np.random.normal(0, self.noise[2])
         self.speed_y = self.inertia * self.speed_y + acceleration[1] * self.dt + np.random.normal(0, self.noise[3])
-
+            
         # Determine the angle of the car, the image is rotated by default of -90 degrees
         self.theta = (np.rad2deg(np.arctan2(self.speed_y, self.speed_x)) + 90)%360
         
@@ -88,6 +88,10 @@ class Car():
         
         return corners
 
+    def get_coords(self):
+        # Get the coordinates
+        return np.array([self.x, self.y])
+        
     def get_state(self):
         # Get the state
         return np.array([self.x, self.y, self.speed_x, self.speed_y])

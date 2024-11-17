@@ -161,8 +161,16 @@ def get_new_targets(car_state, obstacles, target):
 
         # Determine the distances between car and slightly distant coordinates to the obstacle
         distances = new_candidates - car_coords
+
+        car_obs   = obstacle_coords - car_coords
+        car_obs_t = np.arctan2(car_obs[1], car_obs[0])
+        thetas    = np.arctan2(distances[:, 1], distances[:, 0])
+        diff      = thetas - car_obs_t
+        diff      = np.rad2deg(np.abs(diff))
+        
         distances = distances**2
         distances = np.sqrt(distances.sum(1))
+        distances[diff < 25] = 1e16
 
         # Find the most suitable temporaneous target
         minimum = np.argmin(distances)
@@ -171,6 +179,45 @@ def get_new_targets(car_state, obstacles, target):
 
         # Use the standard target for at least 3 times before check for a new temporaneous target
         # Remove the collapse to stay in the temporaneous location infinitely
-        counter = 3
+        counter = 3 if np.sqrt((car_obs**2).sum()) > 75 else 1
         
     return new_target, counter
+    
+# Check for overlap using Separating Axis Theorem
+def check_overlap(rect1, rect2):
+    def project_polygon(axis, polygon):
+        projections = np.dot(polygon, axis)
+        return min(projections), max(projections)
+    
+    def overlap_on_axis(axis, rect1, rect2):
+        min1, max1 = project_polygon(axis, rect1)
+        min2, max2 = project_polygon(axis, rect2)
+        return not (max1 < min2 or max2 < min1)
+
+    # Combine edges from both rectangles
+    edges = np.vstack([rect1, rect2])
+    axes = np.diff(edges, axis=0)
+    axes = np.vstack([axes, np.roll(axes, shift=1, axis=0)])  # Orthogonal axes
+
+    # Normalize axes
+    axes = axes / np.linalg.norm(axes, axis=1)[:, None]
+    
+    # Check for overlap on all axes
+    return all(overlap_on_axis(axis, rect1, rect2) for axis in axes)
+
+def check_collision(car, obstacles):
+    car_corners = car.get_coords()[None, :].repeat(4, axis=0)
+    # print(car_corners)
+    # car_corners[0, 0] -= 1e-16
+    # car_corners[1, 1] -= 1e-16
+    # car_corners[2, 0] += 1e-16
+    # car_corners[3, 1] += 1e-16
+    
+    for obstacle in obstacles:
+        obstacle_corners = obstacle.rotate_corners()
+        x, y             = obstacle.get_coords()
+        obstacle_corners[:, 0] += x
+        obstacle_corners[:, 1] += y
+        if check_overlap(car_corners, obstacle_corners):
+            return True
+    return False
