@@ -4,6 +4,8 @@ from matplotlib.patches import Circle
 
 from src.Obstacle import Obstacle
 
+import imageio
+
 def draw(car, obstacles):
     """
     Function to draw the current state of the system
@@ -42,9 +44,13 @@ def draw(car, obstacles):
         plt.scatter(*corners[2], color="purple", zorder=5) # bottom-right corner
         plt.scatter(*corners[3], color="black",  zorder=5) # top-right corner
 
-    # Show the plot
-    plt.show()
-    
+    fig.canvas.draw()
+    data = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8)
+    data = data.reshape(fig.canvas.get_width_height()[::-1] + (4,))[:, :, :3]
+
+    plt.close()
+
+    return data
 
 def draw_trajectories(obstacles, start, targets, states, target_list):
     """
@@ -90,4 +96,54 @@ def draw_trajectories(obstacles, start, targets, states, target_list):
         ax.scatter(target_list[:, 0], target_list[:, 1], color="black", zorder=10)
 
     # Show the plot
+    plt.show()
+
+def make_gif(frames, name, fps):
+    imageio.mimsave(name, frames, fps=30)
+
+def get_modules(directional_speeds):
+    modules = directional_speeds**2
+    modules = modules.sum(-1)
+    modules = np.sqrt(modules)
+
+    return modules
+    
+def get_directional(modules, thetas):
+    x = modules * np.cos(thetas)
+    y = modules * np.sin(thetas)
+
+    return x, y
+
+def window_mean(values, window_len=30):
+    # Take the last window_len values minus one
+    window = values[-window_len:]
+    # Padding with zeros when not enough values
+    window = [(0, 0)] * (window_len - len(window)) + window
+
+    window = np.array(window)
+
+    # Create the weigths and normalize them
+    weight = np.arange(window_len).astype(np.float64)
+    weight[:  len(weight)//3] *= 0.5
+    weight[:2*len(weight)//3] *= 0.5
+    weight /= weight.sum()
+
+    # Multiply the speed values by the weight
+    window[:, 0] = window[:, 0] * weight
+    window[:, 1] = window[:, 1] * weight
+
+    # Take the weighted sum
+    return np.sum(window, 0)
+
+def plot_inputs(inputs, references):
+    ref_x, ref_y = references.transpose(2, 0, 1)
+    
+    plt.plot(np.arange(inputs.shape[1]), inputs.mean(0)[:, 0], label="x", zorder=3)
+    plt.plot(np.arange(inputs.shape[1]), ref_x.mean(0), label="ref_x")
+    plt.legend()
+    plt.show()
+
+    plt.plot(np.arange(inputs.shape[1]), inputs.mean(0)[:, 1], label="y", zorder=3)
+    plt.plot(np.arange(inputs.shape[1]), ref_y.mean(0), label="ref_y")
+    plt.legend()
     plt.show()

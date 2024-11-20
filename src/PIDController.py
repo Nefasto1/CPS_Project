@@ -42,7 +42,8 @@ class PID_Controller():
         """
         Reset the PID and history
         """
-        self.prev_errors   = [0]
+        self.prev_errors   = []
+        # self.prev_errors   = [0]
 
         self.speed_history = []
         self.u_history     = []
@@ -64,12 +65,13 @@ class PID_Controller():
         u: The new input
         """
         # Evaluate the error and the values for the integrator and the derivator
-        error          = reference - predicted
-        
-        integral = (np.sum(self.prev_errors[:50]) + error) * self.dt
+        error    = np.array([reference - predicted]).flatten()
+
+        integral = (np.sum(self.prev_errors[:50], axis=0) + error) * self.dt
+        # integral = (np.sum(self.prev_errors[:50]) + error) * self.dt
         integral = np.clip(integral, -1.5, 1.5)
-        
-        derivative     = ( error - self.prev_errors[-1] ) / self.dt
+
+        derivative     = ( error - self.prev_errors[-1] ) / self.dt if len(self.prev_errors) > 0 else 0 
 
         # Evaluate the input
         u = Kp * error    \
@@ -77,7 +79,8 @@ class PID_Controller():
           + Kd * derivative    
 
         # Save the error for the next derivative evaluation
-        self.prev_errors.append(error)
+        self.prev_errors = np.vstack((self.prev_errors, error)) if len(self.prev_errors) != 0 else [error]
+        # self.prev_errors.append(error)
 
         # Take the absolute value (we work with the speed module)
         return np.abs(u)
@@ -129,7 +132,7 @@ class PID_Controller():
         self.reset()
 
         # Retrive the speed history from the simulation and take the modules
-        _, self.speed_history, _, _, _, _, _ = simulation(self.car, self.obstacles, self.target, self, 0.5, 0.8, self.reference, self.simulation_time, Kp, Ki, Kd, kalman=self.kalman, noise=self.noise, LQR=self.LQR)
+        _, self.speed_history, _, _, _, _, _, _ = simulation(self.car, self.obstacles, self.target, self, 0.5, 0.8, self.reference, self.simulation_time, Kp, Ki, Kd, kalman=self.kalman, noise=self.noise, LQR=self.LQR)
         self.speed_history = np.sqrt((self.speed_history**2).sum(1, keepdims=True))
 
         # Evaluate the errors

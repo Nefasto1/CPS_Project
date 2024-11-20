@@ -4,6 +4,7 @@ from src.LQRController import LQRController
 from src.KalmanFilter import KalmanFilter
 from src.LuenbergerObserver import LuenbergerObserver
 from src.collisions import get_new_targets, check_collision
+from src.utils import get_modules, get_directional, window_mean, draw
 
 import numpy as np
 
@@ -38,8 +39,8 @@ def define_system(dt=0.5, inertia=0.8):
     C = np.diag([1, 1, 1, 1])
     
     # Define cost matrices (Q, R)
-    Q = np.diag([1, 1, 1e10, 1e10])  
-    R = np.diag([1e10, 1e10])  
+    Q = np.diag([0, 0, 100, 100])  
+    R = np.diag([10, 10])  
 
     return A, B, C, Q, R
     
@@ -107,17 +108,18 @@ def simulation(car, obstacles, targets, PID=None, dt=0.5, inertia=0.8, reference
     target_list    = []
     reference_list = []
     theta_list     = []
+    frames         = []
     
     has_completed = False
     has_collided  = False
-    
+
     # For all the discretized time-steps
     for i in range(round(simulation_time / dt)):
         # Determine the target (for multitarget system)
-        target_dist = predicted_state - targets[target_idx]
-        target_dist = target_dist[:2]**2
-        target_dist = np.sqrt(target_dist.sum())
-        if target_dist < 50:
+        target_diff = predicted_state - targets[target_idx]
+        target_dist = get_modules(target_diff[:2])
+        target_module = get_modules(target_diff[2:])
+        if target_dist < 25 and target_module < 0.5:
             if target_idx == len(targets) - 1:
                 has_completed = True
             else:
@@ -137,44 +139,24 @@ def simulation(car, obstacles, targets, PID=None, dt=0.5, inertia=0.8, reference
 
         # Find the target direction
         diff = predicted_state - new_target
+        
+        diff[:2] = np.clip(diff[:2], -1, 1)
+        diff[2:] = np.clip(diff[2:], -0.5, 0.5)
 
+        reference = diff[2:]
         # LQR for track optimization
         if LQR:
             u = lqr_controller.compute_control_input(diff)
         else:
             u = -diff[:2]
-
-        reference = diff[:2]**2
-        reference = np.sqrt(reference.sum()) / 100
-
-        reference = np.clip(reference, -5, 5)
-        
-        theta     = np.arctan2(u[1], u[0])
-
+    
         if PID is not None:            
-            module           = np.sqrt((u ** 2).sum())
-            corrected_module = PID.control(reference, module, Kp, Ki, Kd)
-        
-            u = corrected_module * np.cos(theta), corrected_module * np.sin(theta)
-        
-        u = np.clip(u, -5, 5)
+            corrected_module = PID.control(reference, u, Kp, Ki, Kd)
 
-        tmp = 30
-        window = u_list[-(tmp-1):]
-        window = [(0, 0)] * (tmp-1 - len(window)) + window
-        window += [u]
-
-        window = np.array(window)
-        weight = np.arange(tmp).astype(np.float64)
-        weight[:  len(weight)//3] *= 0.5
-        weight[:2*len(weight)//3] *= 0.5
-        weight /= weight.sum()
-
-        window[:, 0] *= weight
-        window[:, 1] *= weight
-        u = np.sum(window, 0)
+        theta = np.arctan2(u[1], u[0])
         
-        # u = np.clip(u, -3, 3)  # Apply saturation limit to control input
+
+        u = window_mean(u_list+[u])
         
         # Perform a step
         speed = car.accelerate_noisy(u)
@@ -194,8 +176,11 @@ def simulation(car, obstacles, targets, PID=None, dt=0.5, inertia=0.8, reference
         if not new_target.tolist() in targets.tolist():
             target_list.append(new_target)
 
+        # frame = draw(car, obstacles)
+        # frames.append(frame)
+
     states      = np.array(states)
     u_list      = np.array(u_list)
     target_list = np.array(target_list)
 
-    return states, u_list, np.unique(target_list, axis=0), reference_list, theta_list, has_completed, has_collided
+    return states, u_list, np.unique(target_list, axis=0), reference_list, theta_list, has_completed, has_collided, frames
