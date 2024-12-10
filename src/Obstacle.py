@@ -16,7 +16,7 @@ class Obstacle():
         self.theta = theta
         self.img   = Image.fromarray((imread("images/barrier.png") * 255).astype(np.uint8))
 
-        self.height = 25
+        self.height = 15
         self.width  = 30        
 
         self.corners = np.array([ (+ self.width, + self.height), 
@@ -55,13 +55,14 @@ class Obstacle():
         obstacle_annotation = AnnotationBbox(obstacle_offset, (self.x, self.y), frameon=False)
         
         # Add the car and the hitbox to the plot
-        ax.add_artist(obstacle_annotation)
-        ax.add_patch( patches.Rectangle((self.x - self.width, self.y - self.height), 
+        artist = ax.add_artist(obstacle_annotation)
+        patch  = ax.add_patch( patches.Rectangle((self.x - self.width, self.y - self.height), 
                                         height=self.height*2, width=self.width*2, angle=self.theta, 
                                         rotation_point="center", 
                                         edgecolor='red', facecolor="None", lw=3, 
                                         zorder=5))
         
         # Add the center to the plot
-        plt.scatter(self.x, self.y, color="red", zorder=5)
-        
+        scatt  = ax.scatter(self.x, self.y, color="red", zorder=5)
+
+        return artist, patch, scatt

@@ -23,8 +23,8 @@ class Car():
 
         self.noise = noise
         
-        self.height = 42
-        self.width  = 22
+        self.height = 45
+        self.width  = 18
 
         self.dt      = 0.5
         self.inertia = 0.8
@@ -107,12 +107,14 @@ class Car():
         car_annotation = AnnotationBbox(car_offset, (self.x, self.y), frameon=False)
 
         # Add the car and the hitbox to the plot
-        ax.add_artist(car_annotation)
-        ax.add_patch( patches.Rectangle((self.x - self.width, self.y - self.height), 
+        artist = ax.add_artist(car_annotation)
+        patch  = ax.add_patch( patches.Rectangle((self.x - self.width, self.y - self.height), 
                                         height=self.height*2, width=self.width*2, angle=self.theta, 
                                         rotation_point="center", 
                                         edgecolor='red', facecolor="None", lw=3, 
                                         zorder=5))
         
         # Add the center to the plot
-        plt.scatter(self.x, self.y, color="red", zorder=5)
+        scatt  = ax.scatter(self.x, self.y, color="red", zorder=5)
+
+        return artist, patch, scatt

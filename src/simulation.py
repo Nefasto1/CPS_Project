@@ -107,27 +107,29 @@ def simulation(car, obstacles, targets, PID=None, dt=0.5, inertia=0.8, reference
     states         = [car.get_state()]
     target_list    = []
     reference_list = []
-    theta_list     = []
+    theta_list     = [0]
     frames         = []
-    
-    has_completed = False
-    has_collided  = False
+    has_completed   = []
+    has_collided   = []
 
     # For all the discretized time-steps
     for i in range(round(simulation_time / dt)):
+        completed = False
+        collided  = False
+        
         # Determine the target (for multitarget system)
         target_diff = predicted_state - targets[target_idx]
         target_dist = get_modules(target_diff[:2])
         target_module = get_modules(target_diff[2:])
-        if target_dist < 25 and target_module < 0.5:
+        if target_dist < 25 and target_module < 0.25:
             if target_idx == len(targets) - 1:
-                has_completed = True
+                completed = True
             else:
                 target_idx += 1
 
         # Determine if has collided
         if check_collision(car, obstacles):
-            has_collided = True
+            collided = True
             
         new_target = targets[target_idx]
 
@@ -153,10 +155,12 @@ def simulation(car, obstacles, targets, PID=None, dt=0.5, inertia=0.8, reference
         if PID is not None:            
             corrected_module = PID.control(reference, u, Kp, Ki, Kd)
 
-        theta = np.arctan2(u[1], u[0])
+        _, _, speed_x, speed_y = car.get_state()
+        theta = np.arctan2(speed_y, speed_x)
         
 
         u = window_mean(u_list+[u])
+        u = np.clip(u, -1, 1)
         
         # Perform a step
         speed = car.accelerate_noisy(u)
@@ -175,6 +179,9 @@ def simulation(car, obstacles, targets, PID=None, dt=0.5, inertia=0.8, reference
         theta_list.append(theta)
         if not new_target.tolist() in targets.tolist():
             target_list.append(new_target)
+
+        has_collided.append(collided)
+        has_completed.append(completed)
 
         # frame = draw(car, obstacles)
         # frames.append(frame)

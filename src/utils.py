@@ -1,56 +1,72 @@
 import numpy as np
+
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+
 from matplotlib.patches import Circle
 
+from src.Car import Car
 from src.Obstacle import Obstacle
 
-import imageio
-
-def draw(car, obstacles):
+def draw(states, thetas, obstacle_list):
     """
     Function to draw the current state of the system
 
+    WARNING: Requires a LOT of RAM
+
     Parameters
     ----------
-    car: The initialized car object
-    obstacles: The list of initialized obstacles
+    states: car states
+    thetas: car thetas
+    obstacle_list: The list of obstacles
     """
     # Initialize the plot
     image_size = 1000
     fig = plt.figure(figsize=(image_size / 100, image_size / 100), dpi=100)
-    ax = plt.gca()
-    ax.axis('off')
     
-    ax.set_xlim(0, image_size)
-    ax.set_ylim(0, image_size)
-
-    # Draw the car
-    car.draw(ax)
-
-    # Draw the car's corner
-    corners = car.get_corners()
-    plt.scatter(*corners[0], color="blue",   zorder=5) # top-left corner
-    plt.scatter(*corners[1], color="green",  zorder=5) # bottom-left corner
-    plt.scatter(*corners[2], color="purple", zorder=5) # bottom-right corner
-    plt.scatter(*corners[3], color="black",  zorder=5) # top-right corner
-
-    # Draw the obstacles and relatives corners
-    for obstacle in obstacles:
-        obstacle.draw(ax)
+    def animate(i):
+        print(i)
+        ax = plt.gca()
+        plt.cla()
+        ax.axis('off')
         
-        corners = obstacle.get_corners()
-        plt.scatter(*corners[0], color="blue",   zorder=5) # top-left corner
-        plt.scatter(*corners[1], color="green",  zorder=5) # bottom-left corner
-        plt.scatter(*corners[2], color="purple", zorder=5) # bottom-right corner
-        plt.scatter(*corners[3], color="black",  zorder=5) # top-right corner
+        ax.set_xlim(0, image_size)
+        ax.set_ylim(0, image_size)
 
-    fig.canvas.draw()
-    data = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8)
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (4,))[:, :, :3]
-
-    plt.close()
-
-    return data
+        car       = Car(states[i, :2], states[i, 2:], thetas[i], noise=noise)
+        obstacles = [Obstacle(coords, angle) for coords, angle in obstacle_list]
+        
+        prova = []
+        # Draw the car
+        car_art, car_patch, car_scatt = car.draw(ax)
+    
+        prova.append(car_art)
+        prova.append(car_patch)
+        prova.append(car_scatt)
+        
+        # Draw the car's corner
+        corners = car.get_corners()
+        for corner in corners:
+            prova.append(ax.scatter(*corner, color="blue", zorder=5))
+        
+        # Draw the obstacles and relatives corners
+        for obstacle in obstacles:
+            obs_art, obs_patch, obs_scatt = obstacle.draw(ax)
+            
+            corners = obstacle.get_corners()
+            for corner in corners:
+                prova.append(ax.scatter(*corner, color="blue", zorder=5))
+    
+        return prova
+    
+        ani = animation.FuncAnimation(fig, animate, repeat=True,
+                                            frames=len(states)-1, interval=50)
+        
+        # To save the animation using Pillow as a gif
+        writer = animation.PillowWriter(fps=60,
+                                        metadata=dict(artist='Me'),
+                                        bitrate=1800)
+        ani.save('scatter.gif', writer=writer)
 
 def draw_trajectories(obstacles, start, targets, states, target_list):
     """
@@ -98,8 +114,42 @@ def draw_trajectories(obstacles, start, targets, states, target_list):
     # Show the plot
     plt.show()
 
-def make_gif(frames, name, fps):
-    imageio.mimsave(name, frames, fps=30)
+def draw_trajectory_colored(states, start, obstacles, targets, target_list, has_completed, has_collided):    
+    # Initialize the Obstacles
+    obstacles_draw = np.array([Obstacle(coords, angle) for coords, angle in obstacles])
+    
+    # Initialize the plot
+    image_size = 1000
+    fig = plt.figure(figsize=(image_size / 100, image_size / 100), dpi=100)
+    ax = plt.gca()
+    ax.axis('off')
+    
+    ax.set_xlim(0, image_size)
+    ax.set_ylim(0, image_size)
+    
+    # Plot the trajectories
+    colors = ["blue" if completed.any() and not collided.any() else "red" for completed, collided in zip(has_completed, has_collided)]
+    for state, color in zip(states, colors):
+        ax.plot(state[:, 0], state[:, 1], color=color)
+    
+    # Plot the starting position
+    ax.scatter(start[0][0], start[0][1], color="green", zorder=10)
+    
+    # Plot the obstacles and relative detection boundings
+    for obstacle in obstacles_draw:
+        obstacle.draw(ax)
+        ax.add_patch(Circle(obstacle.get_coords(), 200, lw=2, facecolor="None", edgecolor="red", zorder=10))
+    
+    # Plot the target position
+    ax.scatter(targets[:, 0], targets[:, 1], color="yellow", zorder=10)
+    
+    if len(target_list) > 0:
+        # Plot the temporaneous target positions
+        ax.scatter(target_list[:, 0], target_list[:, 1], color="black", zorder=10)
+
+    plt.title(f"Completed: {has_completed.any(1).mean()}, Collided: {has_collided.any(1).mean()}")
+    # Show the plot
+    plt.show()
 
 def get_modules(directional_speeds):
     modules = directional_speeds**2

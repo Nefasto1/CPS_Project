@@ -207,11 +207,6 @@ def check_overlap(rect1, rect2):
 
 def check_collision(car, obstacles):
     car_corners = car.get_coords()[None, :].repeat(4, axis=0)
-    # print(car_corners)
-    # car_corners[0, 0] -= 1e-16
-    # car_corners[1, 1] -= 1e-16
-    # car_corners[2, 0] += 1e-16
-    # car_corners[3, 1] += 1e-16
     
     for obstacle in obstacles:
         obstacle_corners = obstacle.rotate_corners()
