@@ -132,7 +132,7 @@ class PID_Controller():
         self.reset()
 
         # Retrive the speed history from the simulation and take the modules
-        _, self.speed_history, _, _, _, _, _, _ = simulation(self.car, self.obstacles, self.target, self, 0.5, 0.8, self.reference, self.simulation_time, Kp, Ki, Kd, kalman=self.kalman, noise=self.noise, LQR=self.LQR)
+        _, self.speed_history, _, _, _, _, _, _, _ = simulation(self.car, self.obstacles, self.target, self, 0.5, 0.8, self.reference, self.simulation_time, Kp, Ki, Kd, kalman=self.kalman, noise=self.noise, LQR=self.LQR)
         self.speed_history = np.sqrt((self.speed_history**2).sum(1, keepdims=True))
 
         # Evaluate the errors

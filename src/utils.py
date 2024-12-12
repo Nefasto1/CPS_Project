@@ -114,7 +114,7 @@ def draw_trajectories(obstacles, start, targets, states, target_list):
     # Show the plot
     plt.show()
 
-def draw_trajectory_colored(states, start, obstacles, targets, target_list, has_completed, has_collided):    
+def draw_trajectory_colored(states, start, obstacles, targets, target_list, has_completed, has_collided, save=False):    
     # Initialize the Obstacles
     obstacles_draw = np.array([Obstacle(coords, angle) for coords, angle in obstacles])
     
@@ -149,8 +149,10 @@ def draw_trajectory_colored(states, start, obstacles, targets, target_list, has_
 
     plt.title(f"Completed: {has_completed.any(1).mean()}, Collided: {has_collided.any(1).mean()}")
     # Show the plot
+    if save:
+        plt.savefig("trajectories.png")
     plt.show()
-
+    
 def get_modules(directional_speeds):
     modules = directional_speeds**2
     modules = modules.sum(-1)
@@ -185,7 +187,7 @@ def window_mean(values, window_len=30):
     # Take the weighted sum
     return np.sum(window, 0)
 
-def plot_inputs(inputs, references):
+def plot_inputs(inputs, references, save=False):
     ref_x, ref_y = references.transpose(2, 0, 1)
     
     plt.plot(np.arange(inputs.shape[1]), inputs.mean(0)[:, 0], label="x", zorder=3)
@@ -196,4 +198,7 @@ def plot_inputs(inputs, references):
     plt.plot(np.arange(inputs.shape[1]), inputs.mean(0)[:, 1], label="y", zorder=3)
     plt.plot(np.arange(inputs.shape[1]), ref_y.mean(0), label="ref_y")
     plt.legend()
+
+    if save:
+        plt.savefig("inputs.png")
     plt.show()

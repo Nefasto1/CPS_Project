@@ -109,9 +109,11 @@ def simulation(car, obstacles, targets, PID=None, dt=0.5, inertia=0.8, reference
     reference_list = []
     theta_list     = [0]
     frames         = []
-    has_completed   = []
+    has_completed  = []
     has_collided   = []
+    targ_distance_list  = []
 
+    targ_distance = 1e16
     # For all the discretized time-steps
     for i in range(round(simulation_time / dt)):
         completed = False
@@ -137,7 +139,7 @@ def simulation(car, obstacles, targets, PID=None, dt=0.5, inertia=0.8, reference
         counter -= 1
         if counter == 0 and len(obstacles) > 0:
             # If close to an obstacle in front find a temporaneous target to avoid it
-            new_target, counter = get_new_targets(predicted_state, obstacles, new_target)
+            new_target, targ_distance, counter = get_new_targets(predicted_state, obstacles, new_target)
 
         # Find the target direction
         diff = predicted_state - new_target
@@ -182,12 +184,6 @@ def simulation(car, obstacles, targets, PID=None, dt=0.5, inertia=0.8, reference
 
         has_collided.append(collided)
         has_completed.append(completed)
+        targ_distance_list.append(targ_distance)
 
-        # frame = draw(car, obstacles)
-        # frames.append(frame)
-
-    states      = np.array(states)
-    u_list      = np.array(u_list)
-    target_list = np.array(target_list)
-
-    return states, u_list, np.unique(target_list, axis=0), reference_list, theta_list, has_completed, has_collided, frames
+    return states, u_list, np.unique(target_list, axis=0), reference_list, theta_list, has_completed, has_collided, targ_distance_list, frames

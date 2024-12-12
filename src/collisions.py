@@ -106,12 +106,15 @@ def get_distances(car_coords, obstacles):
     """
     # Retrieve the obstacles coordinates
     obstacle_coords = [obstacle.get_coords() for obstacle in obstacles]
+    obstacle_corner = [obstacle.get_corners() for obstacle in obstacles]
     obstacle_coords = np.array(obstacle_coords)
+    obstacle_corner = np.array(obstacle_corner)
 
     # Take the absolute difference between car and obstacles
     distances = np.abs(obstacle_coords - car_coords)
+    corner_dist = np.abs(obstacle_corner - car_coords)
     
-    return distances
+    return distances, corner_dist
     
 def get_new_targets(car_state, obstacles, target):
     """
@@ -136,7 +139,7 @@ def get_new_targets(car_state, obstacles, target):
     car_theta  = np.arctan2(car_coords[1], car_coords[0])
 
     # Retrieve the distances and modules between car and obstacles' corner
-    distances = get_distances(car_coords, obstacles)
+    distances, real_distances = get_distances(car_coords, obstacles)
     modules   = np.sqrt((distances**2).sum(1))
 
     # Determine the angle between the car and the obstacles
@@ -144,9 +147,13 @@ def get_new_targets(car_state, obstacles, target):
     thetas = np.abs(np.rad2deg(thetas - car_theta)) % 360
 
     # Find the closest obstacle corner
-    minimum              = np.argmin(modules)
-    minimum_obstacle     = obstacles[minimum]
+    minimum          = np.argmin(modules)
+    minimum_obstacle = obstacles[minimum]
 
+    real_distances = real_distances.reshape(-1, 2)
+    real_distances = np.sqrt((real_distances**2).sum(1))
+    real_distances = real_distances.min()
+    
     # If the closest is below a threshold and is in direction between the target and car determine a temporaneous target
     # Otherwise return the original one
     if modules[minimum] < 200 and thetas[minimum] < 45:
@@ -176,12 +183,12 @@ def get_new_targets(car_state, obstacles, target):
         minimum = np.argmin(distances)
         new_target = new_candidates[minimum]
         new_target = np.hstack((new_target, [0, 0]))
-
+        
         # Use the standard target for at least 3 times before check for a new temporaneous target
         # Remove the collapse to stay in the temporaneous location infinitely
         counter = 3 if np.sqrt((car_obs**2).sum()) > 75 else 1
         
-    return new_target, counter
+    return new_target, real_distances, counter
     
 # Check for overlap using Separating Axis Theorem
 def check_overlap(rect1, rect2):
